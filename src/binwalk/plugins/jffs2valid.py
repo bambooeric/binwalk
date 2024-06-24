@@ -2,7 +2,9 @@ import struct
 import binascii
 import binwalk.core.plugin
 
+
 class JFFS2ValidPlugin(binwalk.core.plugin.Plugin):
+
     '''
     Helps validate JFFS2 signature results.
 
@@ -32,16 +34,14 @@ class JFFS2ValidPlugin(binwalk.core.plugin.Plugin):
         if result.file and result.description.lower().startswith('jffs2 filesystem'):
 
             # Seek to and read the suspected JFFS2 node header
-            fd = self.module.config.open_file(result.file.name, offset=result.offset)
+            fd = self.module.config.open_file(result.file.path, offset=result.offset)
             # JFFS2 headers are only 12 bytes in size, but reading larger amounts of
             # data from disk speeds up repeated disk access and decreases performance
             # hits (disk caching?).
             #
             # TODO: Should this plugin validate the *entire* JFFS2 file system, rather
-            #       than letting the signature module find every single JFFS2 node?
+            # than letting the signature module find every single JFFS2 node?
             node_header = fd.read(1024)
             fd.close()
 
             result.valid = self._check_crc(node_header[0:12])
-
-

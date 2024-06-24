@@ -1,7 +1,7 @@
 # ----------------------------Archive Formats--------------------------------------
 
 # POSIX tar archives
-257     string      ustar\000   POSIX tar archive
+257     string      ustar\00000   POSIX tar archive
 >8      byte        !0
 >>8     string      x           \b, owner user name: "%.32s"
 >40     byte        !0
@@ -35,20 +35,33 @@
 >0x161  string      WINZIP          WinZIP self-extracting,
 >4      byte        0x14
 >>30    ubelong     !0x6d696d65     at least v2.0 to extract,
+>4      byte        0x2d
+>>30    ubelong     !0x6d696d65     at least v3.0 to extract,
+
+# From: https://github.com/threatstack/libmagic/blob/master/magic/Magdir/archive
+# Specialised zip formats which start with a member named 'mimetype'
+# (stored uncompressed, with no 'extra field') containing the file's MIME type.
+# Check for have 8-byte name, 0-byte extra field, name "mimetype", and
+# contents starting with "application/". These aren't normal ZIP files and they
+# don't extract properly; mark them as invalid.
+>26	string	    \x08\x00\x00\x00mimetypeapplication/    OpenDocument Text,{invalid}
+
 >18     lelong      !0
->>18    lelong      <0              {invalid}
->>18    lelong      x               compressed size: %d,
->>18    lelong      x               {jump:%d}
+>>18    lelong      x              compressed size: %d,
+>>18    ulelong	    !0xFFFFFFFF
+>>>18   ulelong     x              {jump:%d}
 >22     lelong      !0
->>22    lelong      <0              {invalid}
->>22    lelong      x               uncompressed size: %d,
+>>22    lelong     x               uncompressed size: %d,
 >30     byte        <0x2D           {invalid}
 >30     byte        >0x7A           {invalid}
 >26     leshort     x               {strlen:%d}
 >30     string      x               name: {string}%s
 
+
 # ZIP footer
-0       string      PK\x05\x06      End of Zip archive
+0       string      PK\x05\x06      End of Zip archive,
+>20	leshort+22  <1		    invalid{invalid}
+>20     leshort+22  x               footer length: %d
 >20     leshort     >0
 >>20    leshort     x               \b, comment:
 >>20    leshort     x               {strlen:%d}
@@ -84,7 +97,7 @@
 >34     byte        !0
 >>34    string      x           {name:%s}
 >>34    string      x           original name: "%s",
->0xC    ledate      x           original file date: %s,
+>0xC    uledate      x           original file date: %s,
 >0x10   lelong      <0          {invalid}
 >0x10   lelong      x           compressed file size: %d,
 >0x14   lelong      <0          {invalid}
@@ -102,20 +115,23 @@
 >7      byte        >9          {invalid}
 >7      byte        <0          {invalid}
 
-# RAR archiver (http://kthoom.googlecode.com/hg/docs/unrar.html)
-0   string      \x52\x61\x72\x21\x1A\x07\x00        RAR archive data, first volume type:
->9  ubyte       <0x72                               {invalid}
->9  ubyte       >0x7B                               {invalid}
->9  ubyte       0x72                                MARK_HEAD
->9  ubyte       0x73                                MAIN_HEAD
->9  ubyte       0x74                                FILE_HEAD
->9  ubyte       0x75                                COMM_HEAD
->9  ubyte       0x76                                AV_HEAD
->9  ubyte       0x77                                SUB_HEAD
->9  ubyte       0x78                                PROTECT_HEAD
->9  ubyte       0x79                                SIGN_HEAD
->9  ubyte       0x7A                                NEWSUB_HEAD
->9  ubyte       0x7B                                ENDARC_HEAD
+# RAR archiver (http://archive.today/2014.05.14-050637/http://kthoom.googlecode.com/hg/docs/unrar.html, https://www.rarlab.com/technote.htm#rarsign)
+0   string      \x52\x61\x72\x21\x1A\x07            RAR archive data,
+>6  ubyte       >1                                  unknown version{invalid}
+>6  ubyte       1                                   version 5.x
+>6  ubyte       0                                   version 4.x, first volume type:
+>>9  ubyte       <0x72                               {invalid}
+>>9  ubyte       >0x7B                               {invalid}
+>>9  ubyte       0x72                                MARK_HEAD
+>>9  ubyte       0x73                                MAIN_HEAD
+>>9  ubyte       0x74                                FILE_HEAD
+>>9  ubyte       0x75                                COMM_HEAD
+>>9  ubyte       0x76                                AV_HEAD
+>>9  ubyte       0x77                                SUB_HEAD
+>>9  ubyte       0x78                                PROTECT_HEAD
+>>9  ubyte       0x79                                SIGN_HEAD
+>>9  ubyte       0x7A                                NEWSUB_HEAD
+>>9  ubyte       0x7B                                ENDARC_HEAD
 
 # HPACK archiver (Peter Gutmann, pgut1@cs.aukuni.ac.nz)
 0    string        HPAK        HPACK archive data
@@ -212,8 +228,8 @@
 >6    leshort    <0           {invalid}
 >6    leshort    0            {invalid}
 >6    leshort    x            volume number: %d,
->8    ledate     x            current date: %s,
->12   ledate     x            starting date: %s,
+>8    uledate     x            current date: %s,
+>12   uledate     x            starting date: %s,
 >20   string     x            disk name: "%s",
 >36   string     x            file system name: "%s",
 >52   string     x            user name: "%s"
@@ -317,3 +333,16 @@
 >8      byte            !0x24                   {invalid}
 >8      byte            0x24                    folder records offset: %d
 
+# Benny Baumann <BenBE@geshi.org>
+# XAR archiver, http://code.google.com/p/xar/
+0       string          xar!                    XAR archive
+>6      beshort         x                       \b, version: %d
+>4      ubeshort        x                       \b, header size: %d
+>8      ubequad         x                       \b, TOC compressed: %d
+>16     ubequad         x                       \b, TOC uncompressed: %d
+>24     belong          0                       \b, checksum: none
+>24     belong          1                       \b, checksum: SHA1
+>24     belong          2                       \b, checksum: MD5
+
+# Borg backup-archive (https://github.com/borgbackup/borg)
+0    string    BORG_SEG     BORG Backup Archive

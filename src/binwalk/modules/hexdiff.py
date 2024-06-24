@@ -1,56 +1,61 @@
-import os
 import sys
 import string
 import binwalk.core.common as common
 from binwalk.core.compat import *
 from binwalk.core.module import Module, Option, Kwarg
 
+
 class HexDiff(Module):
 
-
     COLORS = {
-        'red'   : '31',
-        'green' : '32',
-        'blue'  : '34',
+        'red': '31',
+        'green': '32',
+        'blue': '34',
     }
 
     SEPERATORS = ['\\', '/']
     DEFAULT_BLOCK_SIZE = 16
 
     SKIPPED_LINE = "*"
+    SAME_DIFFERENCE = "~"
     CUSTOM_DISPLAY_FORMAT = "0x%.8X    %s"
 
     TITLE = "Binary Diffing"
 
     CLI = [
-            Option(short='W',
-                   long='hexdump',
-                   kwargs={'enabled' : True},
-                   description='Perform a hexdump / diff of a file or files'),
-            Option(short='G',
-                   long='green',
-                   kwargs={'show_green' : True},
-                   description='Only show lines containing bytes that are the same among all files'),
-            Option(short='i',
-                   long='red',
-                   kwargs={'show_red' : True},
-                   description='Only show lines containing bytes that are different among all files'),
-            Option(short='U',
-                   long='blue',
-                   kwargs={'show_blue' : True},
-                   description='Only show lines containing bytes that are different among some files'),
-            Option(short='w',
-                   long='terse',
-                   kwargs={'terse' : True},
-                   description='Diff all files, but only display a hex dump of the first file'),
+        Option(short='W',
+               long='hexdump',
+               kwargs={'enabled': True},
+               description='Perform a hexdump / diff of a file or files'),
+        Option(short='G',
+               long='green',
+               kwargs={'show_green': True},
+               description='Only show lines containing bytes that are the same among all files'),
+        Option(short='i',
+               long='red',
+               kwargs={'show_red': True},
+               description='Only show lines containing bytes that are different among all files'),
+        Option(short='U',
+               long='blue',
+               kwargs={'show_blue': True},
+               description='Only show lines containing bytes that are different among some files'),
+        Option(short='u',
+               long='similar',
+               kwargs={'show_same': True},
+               description='Only display lines that are the same between all files'),
+        Option(short='w',
+               long='terse',
+               kwargs={'terse': True},
+               description='Diff all files, but only display a hex dump of the first file'),
     ]
 
     KWARGS = [
-            Kwarg(name='show_red', default=False),
-            Kwarg(name='show_blue', default=False),
-            Kwarg(name='show_green', default=False),
-            Kwarg(name='terse', default=False),
-            Kwarg(name='enabled', default=False),
+        Kwarg(name='show_red', default=False),
+        Kwarg(name='show_blue', default=False),
+        Kwarg(name='show_green', default=False),
+        Kwarg(name='terse', default=False),
+        Kwarg(name='show_same', default=False),
+        Kwarg(name='enabled', default=False),
     ]
 
     RESULT_FORMAT = "%s\n"
@@ -98,7 +103,7 @@ class HexDiff(Module):
                 except IndexError as e:
                     diff_count += 1
 
-            if diff_count == len(target_data)-1:
+            if diff_count == len(target_data) - 1:
                 color = "red"
             elif diff_count > 0:
                 color = "blue"
@@ -114,12 +119,21 @@ class HexDiff(Module):
         return (hexbyte, asciibyte)
 
     def diff_files(self, target_files):
+        last_raw_line = None
         last_line = None
         loop_count = 0
         sep_count = 0
 
+        # Figure out the maximum diff size (largest file size)
+        self.status.total = 0
+        for i in range(0, len(target_files)):
+            if target_files[i].size > self.status.total:
+                self.status.total = target_files[i].size
+                self.status.fp = target_files[i]
+
         while True:
             line = ""
+            current_raw_line = ""
             done_files = 0
             block_data = {}
             seperator = self.SEPERATORS[sep_count % 2]
@@ -153,28 +167,41 @@ class HexDiff(Module):
                     break
 
                 if fp != target_files[-1]:
+                    # Need to keep a copy of the line data without the seperator, since the sep changes
+                    # every other line. This allows us to compare one raw line to a previous raw line to
+                    # see if they are the same.
+                    current_raw_line += line
                     line += " %s " % seperator
 
             offset = fp.offset + (self.block * loop_count)
 
-            if not self._color_filter(line):
+            if current_raw_line == last_raw_line and self.show_same == True:
+                display = line = self.SAME_DIFFERENCE
+            elif not self._color_filter(line):
                 display = line = self.SKIPPED_LINE
             else:
                 display = self.CUSTOM_DISPLAY_FORMAT % (offset, line)
                 sep_count += 1
 
-            if line != self.SKIPPED_LINE or last_line != line:
+            if (line not in [self.SKIPPED_LINE, self.SAME_DIFFERENCE] or
+                    (last_line != line and
+                        (last_line not in [self.SKIPPED_LINE, self.SAME_DIFFERENCE] or
+                         line not in [self.SKIPPED_LINE, self.SAME_DIFFERENCE]))):
                 self.result(offset=offset, description=line, display=display)
 
             last_line = line
+            last_raw_line = current_raw_line
             loop_count += 1
+            self.status.completed += self.block
 
     def init(self):
-        # To mimic expected behavior, if all options are False, we show everything
+        # To mimic expected behavior, if all options are False, we show
+        # everything
         if not any([self.show_red, self.show_green, self.show_blue]):
             self.show_red = self.show_green = self.show_blue = True
 
-        # Always disable terminal formatting, as it won't work properly with colorized output
+        # Always disable terminal formatting, as it won't work properly with
+        # colorized output
         self.config.display.fit_to_screen = False
 
         # Set the block size (aka, hexdump line size)
@@ -197,7 +224,8 @@ class HexDiff(Module):
             file_count = 1
         else:
             file_count = len(self.hex_target_files)
-        self.HEADER_FORMAT = "OFFSET      " + (("%%-%ds   " % header_width) * file_count) + "\n"
+        self.HEADER_FORMAT = "OFFSET      " + \
+            (("%%-%ds   " % header_width) * file_count) + "\n"
 
         # Build the header argument list
         self.HEADER = [fp.name for fp in self.hex_target_files]
@@ -217,4 +245,3 @@ class HexDiff(Module):
             self.header()
             self.diff_files(self.hex_target_files)
             self.footer()
-
