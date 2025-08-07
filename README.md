@@ -1,34 +1,34 @@
-# Binwalk
+# Binwalk v3
 
-[![Build Status](https://travis-ci.org/ReFirmLabs/binwalk.svg?branch=master)](https://travis-ci.org/ReFirmLabs/binwalk)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/ReFirmLabs/binwalk/graphs/commit-activity)
-[![GitHub license](https://img.shields.io/github/license/ReFirmLabs/binwalk.svg)](https://github.com/ReFirmLabs/binwalk/blob/master/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/badges/shields.svg?style=social&label=Stars)](https://github.com/ReFirmLabs/binwalk/stargazers)
+This is an updated version of the Binwalk firmware analysis tool, re-written in Rust for speed and accuracy.
 
-Binwalk is a fast, easy to use tool for analyzing, reverse engineering, and extracting firmware images.
+![binwalk v3](images/binwalk_animated.svg)
 
+## What does it do?
 
-### *** Extraction Security Notice ***
+Binwalk can identify, and optionally extract, files and data that have been embedded inside of other files.
 
-Prior to Binwalk v2.3.3, extracted archives could create symlinks which point anywhere on the file system, potentially resulting in a directory traversal attack if subsequent extraction utilties blindly follow these symlinks. More generically, Binwalk makes use of many third-party extraction utilties which may have unpatched security issues; Binwalk v2.3.3 and later allows external extraction tools to be run as an unprivileged user using the `run-as` command line option (this requires Binwalk itself to be run with root privileges). Additionally, Binwalk v2.3.3 and later will refuse to perform extraction as root unless `--run-as=root` is specified.
+While its primary focus is firmware analysis, it supports a [wide variety](https://github.com/ReFirmLabs/binwalk/wiki/Supported-Signatures) of file and data types.
 
+Through [entropy analysis](https://github.com/ReFirmLabs/binwalk/wiki/Generating-Entropy-Graphs), it can even help to identify unknown compression or encryption!
 
-### *** Python 2.7 Deprecation Notice ***
+Binwalk can be customized and [integrated](https://github.com/ReFirmLabs/binwalk/wiki/Using-the-Rust-Library) into your own Rust projects.
 
-Even though many major Linux distros are still shipping Python 2.7 as the default interpreter in their currently stable release, we are making the difficult decision to move binwalk support exclusively to Python 3. This is likely to make many upset and others rejoice. If you need to install binwalk into a Python 2.7 environment we will be creating a tag `python27` that will be a snapshot of `master` before all of these major changes are made. Thank you for being patient with us through this transition process.
+## How do I get it?
 
+The easiest way to install Binwalk and all dependencies is to [build a Docker image](https://github.com/ReFirmLabs/binwalk/wiki/Building-A-Binwalk-Docker-Image).
 
-### Installation and Usage
+Binwalk can also be [installed](https://github.com/ReFirmLabs/binwalk/wiki/Cargo-Installation) via the Rust package manager.
 
-* [Installation](./INSTALL.md)
-* [API](./API.md)
-* [Supported Platforms](https://github.com/ReFirmLabs/binwalk/wiki/Supported-Platforms)
-* [Getting Started](https://github.com/ReFirmLabs/binwalk/wiki/Quick-Start-Guide)
-* [Binwalk Command Line Usage](https://github.com/ReFirmLabs/binwalk/wiki/Usage)
-* [Binwalk IDA Plugin Usage](https://github.com/ReFirmLabs/binwalk/wiki/Creating-Custom-Plugins)
+Or, you can [compile from source](https://github.com/ReFirmLabs/binwalk/wiki/Compile-From-Source)!
 
-More information on [Wiki](https://github.com/ReFirmLabs/binwalk/wiki)
+## How do I use it?
 
-# Binwalk Professional Edition
+Usage is _**simple**_, analysis is _**fast**_, and results are _**detailed**_:
 
-After years of developing and supporting binwalk as an open source project we have finally sold out to the man and released a cloud-based firmware extraction engine called *Binwalk Enterprise*. After all someone needs to pay devttys0 so he can buy more milling equipment and feed his children (in that order). Please consider subscribing and reap the benefits of getting actual customer support for all your firmware extraction and analysis needs. Please visit https://www.refirmlabs.com/binwalk-enterprise/ for more information. 
+```
+binwalk DIR-890L_AxFW110b07.bin
+```
+![example output](images/output.png)
+
+Use `--help`, or check out the [Wiki](https://github.com/ReFirmLabs/binwalk/wiki#usage) for more advanced options!

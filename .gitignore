@@ -1,6 +1,1 @@
-build
-dist
-.coverage
-*.extracted
-*.pyc
-**/*.egg-info
+target
